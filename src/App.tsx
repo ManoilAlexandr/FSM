@@ -1,17 +1,40 @@
 import './App.css'
-import {Container, Paper, Stack, TextField} from "@mui/material";
-import {ExpressionFSM} from "./services/FSM/FSM";
+import {Alert, Container, Paper, Stack, TextField} from "@mui/material";
+import {ExpressionFSM} from "./services/FSM";
+import {ErrorsObserver} from "./services/ErrorHandler";
+import {useEffect, useMemo, useState} from "react";
+import {FSMTypedElement} from "./services/FSM/types";
 
 function App() {
-  const fsm = new ExpressionFSM();
+  const [errors, setErrors] = useState([]);
+
+  const FSM = useMemo(() => new ExpressionFSM(),[]);
+  const ErrorsHandler = useMemo(() => new ErrorsObserver(), []);
 
   const onInput = (inputValue: string) => {
-      const lastSymbol = inputValue.slice(-1),
-        positionOfSymbol = inputValue.indexOf(lastSymbol) + 1;
+    const lastSymbol = inputValue.slice(-1),
+      positionOfSymbol = inputValue.lastIndexOf(lastSymbol) + 1;
 
-    fsm.onAction(lastSymbol, () => console.log(`error on pos ${positionOfSymbol}`));
-
+    FSM.onAction({
+      element: {
+        value: lastSymbol,
+        pos: positionOfSymbol
+      },
+      ErrorsHandler
+    });
   }
+
+  const errorHandler = (error: FSMTypedElement) => {
+    error ? setErrors([error]) : setErrors([]);
+  }
+
+  useEffect(() => {
+    ErrorsHandler.subscribe(errorHandler);
+
+    return () => {
+      ErrorsHandler.unsubscribe(errorHandler);
+    }
+  }, []);
 
   return (
     <Container sx={{padding: 1}}>
@@ -21,12 +44,14 @@ function App() {
             placeholder={'Input expression'}
             label={'Expression Input'}
             fullWidth
-            variant={'standard'}
+            variant={'filled'}
             onChange={(input: any) => onInput(input.target.value)}
           />
         </Paper>
         <Paper sx={{padding: 1}}>
-          Errors
+          {!errors.length && (<Alert severity="success"> There's no errors </Alert>)}
+          {!!errors.length && errors.map((error) => (
+            <Alert severity={'error'} key={error.pos}>{`${error.value} at pos ${error.pos}`}</Alert>))}
         </Paper>
       </Stack>
     </Container>
